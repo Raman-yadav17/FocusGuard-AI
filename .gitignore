@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# generated at runtime
+logs/
+screenshots/
+settings.json
+stop.flag
+live_metrics.json
+live_metrics.json.tmp
+live_frame.jpg
+live_frame_tmp.jpg

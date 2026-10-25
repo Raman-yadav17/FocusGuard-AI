@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FocusGuard AI – Student Focus Monitoring System</title>
+<meta name="description" content="Webcam-based AI system that detects phone use, sleeping, studying and absence, then alerts the student. Built with YOLO, MediaPipe and Streamlit.">
+<style>
+:root{
+  --paper:#f6f7f4; --card:#ffffff; --ink:#16202a; --muted:#566370; --line:#d9ddd6;
+  --ok:#1f7a45; --bad:#c93434; --link:#2a55c9; --code:#eef0eb;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171c; --card:#1a2128; --ink:#e8ecef; --muted:#9aa7b2; --line:#2c353d;
+    --ok:#4cc582; --bad:#ff6b6b; --link:#8fb0ff; --code:#1f272e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171c; --card:#1a2128; --ink:#e8ecef; --muted:#9aa7b2; --line:#2c353d;
+  --ok:#4cc582; --bad:#ff6b6b; --link:#8fb0ff; --code:#1f272e; color-scheme: dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--link)}
+a:focus-visible,button:focus-visible{outline:3px solid var(--link);outline-offset:3px}
+.wrap{max-width:980px;margin:0 auto;padding:0 22px}
+header.top{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+header.top b{font-family:Georgia,"Iowan Old Style",serif;font-size:19px}
+header.top nav a{margin-left:18px;text-decoration:none;color:var(--muted);font-size:15px}
+header.top nav a:hover{color:var(--ink)}
+
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:42px 0 56px}
+h1{font:700 clamp(34px,5.4vw,54px)/1.08 Georgia,"Iowan Old Style",serif;margin:0 0 18px;letter-spacing:-.01em}
+.lead{font-size:19px;color:var(--muted);max-width:34em;margin:0 0 26px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:16px;
+  border:1.5px solid var(--ink)}
+.btn.main{background:var(--ink);color:var(--paper)}
+.btn.alt{color:var(--ink)}
+
+/* the memorable bit: a detection frame, like the one the app draws on the video */
+.frame{position:relative;aspect-ratio:4/3;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.frame::before,.frame::after{content:"";position:absolute;width:34px;height:34px;border:3px solid var(--ok)}
+.frame::before{top:14px;left:14px;border-right:0;border-bottom:0}
+.frame::after{bottom:14px;right:14px;border-left:0;border-top:0}
+.tag{position:absolute;font:600 13px/1 ui-monospace,Consolas,monospace;padding:6px 9px;border-radius:3px;color:#fff}
+.tag.ok{background:var(--ok)} .tag.bad{background:var(--bad)}
+.box{position:absolute;border:2.5px solid var(--bad);border-radius:3px}
+.person{position:absolute;left:18%;top:26%;width:40%;height:62%;border:2.5px solid var(--ok);border-radius:3px}
+.timers{position:absolute;left:22px;bottom:18px;font:13px/1.5 ui-monospace,Consolas,monospace;color:var(--muted)}
+
+section{padding:40px 0;border-top:1px solid var(--line)}
+h2{font:700 29px/1.2 Georgia,"Iowan Old Style",serif;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 24px;max-width:38em}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line)}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:16px}
+th{font-size:14px;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+.tablewrap{overflow-x:auto}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;background:var(--ok)}
+.dot.bad{background:var(--bad)}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+ol.steps li::before{content:counter(s);font:700 17px/1 Georgia,serif;width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;border:1.5px solid var(--ink)}
+ol.steps li:last-child{border-bottom:0}
+ul.feat{columns:2;column-gap:40px;padding-left:20px;margin:0}
+ul.feat li{margin-bottom:10px;break-inside:avoid}
+figure{margin:0 0 26px}
+figure img{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
+figcaption{color:var(--muted);font-size:14.5px;margin-top:8px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:16px 18px;overflow-x:auto;
+  font:14.5px/1.6 ui-monospace,Consolas,monospace;margin:0 0 14px}
+code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}
+.stack span{display:inline-block;border:1px solid var(--line);background:var(--card);border-radius:4px;
+  padding:5px 11px;margin:0 8px 8px 0;font-size:15px}
+.note{color:var(--muted);font-size:15px}
+footer{border-top:1px solid var(--line);padding:28px 0 46px;color:var(--muted);font-size:15px}
+
+@media (max-width:800px){
+  .hero{grid-template-columns:1fr;gap:30px;padding-top:24px}
+  ul.feat{columns:1}
+  header.top nav a:not(:last-child){display:none}
+}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <b>FocusGuard AI</b>
+  <nav><a href="#detects">What it detects</a><a href="#how">How it works</a><a href="#setup">Setup</a>
+  <a href="https://github.com/Raman-yadav17/FocusGuard-AI">GitHub</a></nav>
+</header>
+
+<div class="hero">
+  <div>
+    <h1>A webcam that notices when you stop studying</h1>
+    <p class="lead">FocusGuard AI watches the desk through an ordinary webcam. If you pick up your phone, doze off or walk away, it plays a sound of your choice, shows a message and logs it for later.</p>
+    <div class="btns">
+      <a class="btn main" href="https://github.com/Raman-yadav17/FocusGuard-AI">View on GitHub</a>
+      <a class="btn alt" href="#setup">Run it yourself</a>
+    </div>
+  </div>
+  <div class="frame" role="img" aria-label="Illustration of the detection view: a person box, a phone box labelled using mobile">
+    <div class="person"></div>
+    <span class="tag ok" style="left:18%;top:20%">person 0.94</span>
+    <div class="box" style="left:50%;top:50%;width:15%;height:24%"></div>
+    <span class="tag bad" style="left:50%;top:43%">phone 0.87</span>
+    <span class="tag bad" style="right:6%;top:6%;font-size:15px;padding:8px 11px">USING MOBILE</span>
+    <div class="timers">STUDYING 12:40<br>USING MOBILE 01:19<br>FPS 18</div>
+  </div>
+</div>
+
+<section id="detects">
+  <h2>What it detects</h2>
+  <p class="sub">Five situations, each with its own response. Sounds and messages are all editable in the web app.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>Situation</th><th>How it is recognised</th><th>Response</th></tr>
+    <tr><td><span class="dot bad"></span>Using mobile</td><td>YOLO finds a phone in the frame for about 2 seconds</td><td>Sound, popup, screenshot</td></tr>
+    <tr><td><span class="dot bad"></span>Sleeping</td><td>Eyes stay closed (eye aspect ratio below threshold)</td><td>Sound, popup, screenshot</td></tr>
+    <tr><td><span class="dot bad"></span>Not present</td><td>No person and no face in view for about 8 seconds</td><td>Beep and popup</td></tr>
+    <tr><td><span class="dot"></span>Studying</td><td>Head tilted down with eyes open</td><td>None, logged as focused time</td></tr>
+    <tr><td><span class="dot"></span>Looking at screen</td><td>Face visible and facing forward</td><td>None, logged as focused time</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="how">
+  <h2>How it works</h2>
+  <p class="sub">Two pretrained models, a few simple rules and a web app on top.</p>
+  <ol class="steps">
+    <li><div><b>Capture.</b> A background thread reads the newest 640 × 480 frame so the video never lags behind.</div></li>
+    <li><div><b>Detect.</b> YOLO11n finds phones and people. MediaPipe Face Landmarker finds the eyes, nose, forehead and chin.</div></li>
+    <li><div><b>Measure.</b> Eye aspect ratio tells open eyes from closed ones. A nose-to-chin ratio tells head-down from head-forward.</div></li>
+    <li><div><b>Decide.</b> A state must last a few seconds before it counts, so blinks and missed frames do not set off alarms.</div></li>
+    <li><div><b>Respond.</b> Play the chosen sound, show a popup, save a screenshot and write the event to a CSV log.</div></li>
+    <li><div><b>Review.</b> The Streamlit app shows live video, a focus score, charts by hour and day, and a daily goal.</div></li>
+  </ol>
+</section>
+
+<section id="features">
+  <h2>Features</h2>
+  <ul class="feat">
+    <li>Live camera view inside the browser</li>
+    <li>Different sound, loop mode and message for each alert</li>
+    <li>Upload your own mp3, wav or ogg files</li>
+    <li>Calibration wizard that sets thresholds for your face and camera angle</li>
+    <li>Pomodoro timer that pauses alerts during breaks</li>
+    <li>Daily study goal with progress bar</li>
+    <li>CSV log export and printable HTML report</li>
+    <li>Privacy mode that hides the video while detection continues</li>
+    <li>Everything runs on your own computer, on the CPU</li>
+    <li>Screenshot gallery with delete buttons</li>
+  </ul>
+</section>
+
+<section id="screens">
+  <h2>Screenshots</h2>
+  <p class="sub">Add your own images to a <code>docs</code> folder with the file names below and they will appear here.</p>
+  <figure><img src="docs/dashboard.png" alt="Dashboard with focus score and activity charts" onerror="this.closest('figure').hidden=true">
+    <figcaption>Dashboard: focus score, time per activity and activity by hour.</figcaption></figure>
+  <figure><img src="docs/live.png" alt="Live camera view with detections" onerror="this.closest('figure').hidden=true">
+    <figcaption>Live tab: detections, current state, timers and frame rate.</figcaption></figure>
+  <figure><img src="docs/settings.png" alt="Settings tab for sounds and sensitivity" onerror="this.closest('figure').hidden=true">
+    <figcaption>Settings tab: alert sounds, messages and sensitivity.</figcaption></figure>
+</section>
+
+<section id="setup">
+  <h2>Run it</h2>
+  <p class="sub">Needs Python 3 and a webcam. Tested on Windows.</p>
+<pre>git clone https://github.com/Raman-yadav17/FocusGuard-AI.git
+cd FocusGuard-AI
+pip install -r requirement.txt
+python -m streamlit run app.py</pre>
+  <p class="note">Put <code>yolo11n.pt</code> in the <code>models</code> folder. The face model downloads itself on the first run. Press Start in the sidebar, then open the Calibrate tab once.</p>
+</section>
+
+<section id="stack">
+  <h2>Built with</h2>
+  <div class="stack"><span>Python</span><span>OpenCV</span><span>Ultralytics YOLO11</span><span>MediaPipe</span><span>Streamlit</span><span>Pandas</span><span>Pygame</span></div>
+  <p class="note">The models are pretrained. The project’s own work is the feature design, timing rules, calibration, alerts and web app.</p>
+</section>
+
+<footer>
+  <p>Made by Raman Yadav as an AIML mini project. Video is processed locally and never uploaded.</p>
+  <p>© 2026 Raman Yadav. All rights reserved.</p>
+</footer>
+
+</div>
+</body>
+</html>
